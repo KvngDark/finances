@@ -441,14 +441,23 @@ function drawCharts() {
   const step = chartWidth / 12;
   const barWidth = Math.min(16, step * 0.24);
   const baseY = padding.top + chartHeight;
+  const valueToY = (value) => baseY - (Math.max(0, value) / maxValue) * chartHeight;
 
   series.forEach((month, index) => {
     const centerX = padding.left + step * index + step / 2;
     const incomeHeight = (month.income / maxValue) * chartHeight;
     const expenseHeight = (month.expense / maxValue) * chartHeight;
+    const hasIncome = month.income > 0;
+    const hasExpense = month.expense > 0;
 
-    roundedBar(ctx, centerX - barWidth - 2, baseY - incomeHeight, barWidth, incomeHeight, "#168a62");
-    roundedBar(ctx, centerX + 2, baseY - expenseHeight, barWidth, expenseHeight, "#c84b3f");
+    if (hasIncome && hasExpense) {
+      roundedBar(ctx, centerX - barWidth - 2, baseY - incomeHeight, barWidth, incomeHeight, "#168a62");
+      roundedBar(ctx, centerX + 2, baseY - expenseHeight, barWidth, expenseHeight, "#c84b3f");
+    } else if (hasIncome) {
+      roundedBar(ctx, centerX - barWidth / 2, baseY - incomeHeight, barWidth, incomeHeight, "#168a62");
+    } else if (hasExpense) {
+      roundedBar(ctx, centerX - barWidth / 2, baseY - expenseHeight, barWidth, expenseHeight, "#c84b3f");
+    }
 
     ctx.fillStyle = index === state.selectedMonth ? "#16201f" : "#66706d";
     ctx.font = `${index === state.selectedMonth ? 800 : 650} 12px system-ui, sans-serif`;
@@ -456,23 +465,30 @@ function drawCharts() {
     ctx.fillText(shortMonthNames[index], centerX, rect.height - 10);
   });
 
-  const points = series.map((month, index) => {
-    const centerX = padding.left + step * index + step / 2;
-    const normalized = (month.net + maxValue) / (maxValue * 2);
-    const y = padding.top + chartHeight - normalized * chartHeight;
-    return { x: centerX, y };
-  });
+  const points = series
+    .map((month, index) => {
+      if (!month.items.length) return null;
+      return {
+        x: padding.left + step * index + step / 2,
+        y: valueToY(month.net),
+        monthIndex: index
+      };
+    })
+    .filter(Boolean);
 
-  ctx.beginPath();
-  points.forEach((point, index) => {
-    if (index === 0) ctx.moveTo(point.x, point.y);
-    else ctx.lineTo(point.x, point.y);
-  });
+  if (!points.length) return;
+
   ctx.strokeStyle = "#226c8a";
   ctx.lineWidth = 3;
-  ctx.stroke();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
 
-  points.forEach((point, index) => {
+  if (points.length > 1) {
+    drawSmoothLine(ctx, points);
+  }
+
+  points.forEach((point) => {
+    const index = point.monthIndex;
     ctx.beginPath();
     ctx.fillStyle = index === state.selectedMonth ? "#17443e" : "#ffffff";
     ctx.strokeStyle = "#226c8a";
@@ -481,6 +497,23 @@ function drawCharts() {
     ctx.fill();
     ctx.stroke();
   });
+}
+
+function drawSmoothLine(ctx, points) {
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const middleX = (previous.x + current.x) / 2;
+    const middleY = (previous.y + current.y) / 2;
+    ctx.quadraticCurveTo(previous.x, previous.y, middleX, middleY);
+  }
+
+  const last = points[points.length - 1];
+  ctx.lineTo(last.x, last.y);
+  ctx.stroke();
 }
 
 function roundedBar(ctx, x, y, width, height, color) {
