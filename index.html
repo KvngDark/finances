@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Controle financeiro</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="topbar-actions">
+          <span id="storageBadge" class="status-pill">Conectando</span>
+          <button id="refreshButton" class="icon-button" type="button" title="Atualizar" aria-label="Atualizar painel">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20 12a8 8 0 0 1-14.7 4.4"></path>
+              <path d="M4 12A8 8 0 0 1 18.7 7.6"></path>
+              <path d="M18 3v5h-5"></path>
+              <path d="M6 21v-5h5"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="dashboard">
+        <section class="period-strip" aria-label="Período">
+          <div class="period-title">
+            <p class="eyebrow">Período selecionado</p>
+            <h2 id="periodTitle">--</h2>
+          </div>
+          <div class="period-controls">
+            <select id="yearSelect" aria-label="Ano"></select>
+            <div id="monthRail" class="month-rail" aria-label="Meses"></div>
+          </div>
+        </section>
+
+        <section class="metrics-grid" aria-label="Resumo financeiro">
+          <article class="metric-card metric-card-strong">
+            <span class="metric-label">Resultado do mês</span>
+            <strong id="netMonth">R$ 0,00</strong>
+            <span id="netMonthHint" class="metric-hint">Sem movimentos</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Entradas</span>
+            <strong id="incomeMonth">R$ 0,00</strong>
+            <span id="incomeCount" class="metric-hint">0 lançamentos</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Saídas</span>
+            <strong id="expenseMonth">R$ 0,00</strong>
+            <span id="expenseCount" class="metric-hint">0 lançamentos</span>
+          </article>
+          <article class="metric-card">
+            <span class="metric-label">Resultado do ano</span>
+            <strong id="yearNet">R$ 0,00</strong>
+            <span id="yearHint" class="metric-hint">12 meses</span>
+          </article>
+        </section>
+
+        <section class="chart-panel flow-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Entradas x saídas</p>
+              <h2>Fluxo anual</h2>
+            </div>
+            <span id="bestMonthBadge" class="soft-badge">--</span>
+          </div>
+          <canvas id="flowChart" aria-label="Gráfico do fluxo anual"></canvas>
+        </section>
+
+        <section class="balance-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Pulso do mês</p>
+              <h2>Proporção</h2>
+            </div>
+          </div>
+          <div class="donut-wrap">
+            <div id="balanceDonut" class="balance-donut" role="img" aria-label="Proporção de entradas e saídas">
+              <span id="donutValue">0%</span>
+              <small>margem</small>
+            </div>
+            <div class="donut-legend">
+              <span><i class="dot income-dot"></i> Entradas</span>
+              <span><i class="dot expense-dot"></i> Saídas</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Novo movimento</p>
+              <h2>Lançamento</h2>
+            </div>
+          </div>
+
+          <form id="transactionForm" class="entry-form">
+            <div class="segmented" aria-label="Tipo do lançamento">
+              <input id="kindIncome" type="radio" name="kind" value="income" checked>
+              <label for="kindIncome">Entrada</label>
+              <input id="kindExpense" type="radio" name="kind" value="expense">
+              <label for="kindExpense">Saída</label>
+            </div>
+
+            <label>
+              <span>Valor</span>
+              <input id="amountInput" name="amount" inputmode="decimal" placeholder="0,00" required>
+            </label>
+
+            <label>
+              <span>Data</span>
+              <input id="dateInput" name="occurredAt" type="date" required>
+            </label>
+
+            <label id="categoryField">
+              <span>Categoria</span>
+              <select id="categorySelect" name="category" required></select>
+            </label>
+
+            <label class="wide-field">
+              <span id="descriptionLabel">Origem da entrada</span>
+              <textarea id="descriptionInput" name="description" rows="3" placeholder="Ex.: Primeira licença Jeep Recreio" required></textarea>
+            </label>
+
+            <button class="primary-button" type="submit">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14"></path>
+                <path d="M5 12h14"></path>
+              </svg>
+              Adicionar
+            </button>
+          </form>
+          <p id="formMessage" class="form-message" role="status"></p>
+        </section>
+
+        <section class="category-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Onde o dinheiro foi</p>
+              <h2>Categorias</h2>
+            </div>
+          </div>
+          <div id="categoryBars" class="category-bars"></div>
+        </section>
+
+        <section class="transactions-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Histórico</p>
+              <h2>Tabelas do mês</h2>
+            </div>
+            <span id="transactionCount" class="soft-badge">0 itens</span>
+          </div>
+          <div class="ledger-grid">
+            <article class="ledger-card">
+              <div class="ledger-heading">
+                <div>
+                  <p class="eyebrow">Dinheiro que entrou</p>
+                  <h3>Entradas</h3>
+                </div>
+                <span id="incomeTableCount" class="soft-badge">0 itens</span>
+              </div>
+              <div id="incomeTransactionsList" class="transactions-list"></div>
+            </article>
+
+            <article class="ledger-card">
+              <div class="ledger-heading">
+                <div>
+                  <p class="eyebrow">Dinheiro que saiu</p>
+                  <h3>Saídas</h3>
+                </div>
+                <span id="expenseTableCount" class="soft-badge">0 itens</span>
+              </div>
+              <div id="expenseTransactionsList" class="transactions-list"></div>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
