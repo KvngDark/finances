@@ -1,0 +1,12 @@
+{
+  "name": "cza-financeiro-despachante",
+  "version": "1.0.0",
+  "description": "Dashboard financeiro para escritorio de despachante com suporte a TiDB.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "mysql2": "^3.11.5"
+  }
+}
