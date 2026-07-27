@@ -391,7 +391,8 @@ textarea:focus {
 }
 
 .dashboard-account-card,
-.dashboard-account-stats article {
+.dashboard-account-stats article,
+.dashboard-account-breakdown article {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.74);
@@ -442,6 +443,41 @@ textarea:focus {
   font-size: clamp(1rem, 1.8vw, 1.28rem);
   line-height: 1.12;
   word-break: break-word;
+}
+
+.dashboard-account-breakdown {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-account-breakdown article {
+  display: grid;
+  gap: 6px;
+  padding: 13px;
+}
+
+.dashboard-account-breakdown span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-account-breakdown strong {
+  font-size: 1.12rem;
+  line-height: 1.1;
+  word-break: break-word;
+}
+
+.dashboard-account-breakdown small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
 }
 
 .donut-wrap {
@@ -953,6 +989,10 @@ textarea:focus {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .dashboard-account-breakdown {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .management-grid,
   .balance-tables,
   .document-grid {
@@ -1013,6 +1053,10 @@ textarea:focus {
   }
 
   .dashboard-account-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-account-breakdown {
     grid-template-columns: 1fr;
   }
 

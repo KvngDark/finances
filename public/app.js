@@ -61,6 +61,7 @@ const els = {
   balanceDonut: document.querySelector("#balanceDonut"),
   donutValue: document.querySelector("#donutValue"),
   transactionForm: document.querySelector("#transactionForm"),
+  accountSelect: document.querySelector("#accountSelect"),
   amountInput: document.querySelector("#amountInput"),
   dateInput: document.querySelector("#dateInput"),
   categoryField: document.querySelector("#categoryField"),
@@ -196,6 +197,12 @@ function syncYearOptions() {
 }
 
 function renderSelects() {
+  const accountOptions = state.accounts
+    .map((account) => `<option value="${account.id}">${escapeHtml(account.name)}</option>`)
+    .join("");
+  els.accountSelect.innerHTML = accountOptions || '<option value="">Cadastre uma conta</option>';
+  els.accountSelect.disabled = !state.accounts.length;
+
   const categoryOptions = state.categories
     .map((category) => `<option value="${category.id}">${escapeHtml(category.name)}</option>`)
     .join("");
@@ -230,9 +237,15 @@ function updateKindFields() {
 async function handleTransactionSubmit(event) {
   event.preventDefault();
   if (state.isSaving) return;
+  if (!state.accounts.length) {
+    setMessage(els.formMessage, "Cadastre uma conta antes de lançar entradas ou saídas.", true);
+    showView("accountsView");
+    return;
+  }
   const kind = getSelectedKind();
   const payload = {
     kind,
+    accountId: els.accountSelect.value,
     amount: els.amountInput.value.trim(),
     occurredAt: els.dateInput.value,
     description: els.descriptionInput.value.trim()
@@ -273,6 +286,7 @@ function startEditTransaction(id) {
 
   state.editingTransactionId = id;
   document.querySelector(`#kind${transaction.kind === "income" ? "Income" : "Expense"}`).checked = true;
+  els.accountSelect.value = transaction.accountId || "";
   els.amountInput.value = String(transaction.amount).replace(".", ",");
   els.dateInput.value = transaction.occurredAt;
   els.descriptionInput.value = transaction.description;
@@ -388,32 +402,47 @@ function renderDashboard() {
   });
 
   renderDonut(current);
-  renderDashboardAccountSummary(current);
+  renderDashboardAccountSummary();
   renderCategoryBars(current);
   renderTransactions(current.items);
   drawCharts();
 }
 
-function renderDashboardAccountSummary(summary) {
-  const account = state.accounts[0];
-  if (!account) {
-    els.dashboardAccountBadge.textContent = "Sem conta";
-    els.dashboardAccountSummary.innerHTML = '<div class="empty-state">Cadastre a conta da empresa para acompanhar o saldo no painel.</div>';
+function renderDashboardAccountSummary() {
+  if (!state.accounts.length) {
+    els.dashboardAccountBadge.textContent = "Sem contas";
+    els.dashboardAccountSummary.innerHTML = '<div class="empty-state">Cadastre até 3 contas da empresa para acompanhar o saldo no painel.</div>';
     return;
   }
 
-  const rows = getAccountMonthlyBalances(account);
-  const monthRow = rows[state.selectedMonth] || { income: summary.income, expense: summary.expense, endBalance: account.currentBalance };
-  const startBalance = monthRow.endBalance - monthRow.income + monthRow.expense;
-  const monthResult = monthRow.income - monthRow.expense;
-  els.dashboardAccountBadge.textContent = account.name;
+  const accountSummaries = state.accounts.map((account) => {
+    const rows = getAccountMonthlyBalances(account);
+    const monthRow = rows[state.selectedMonth] || {
+      income: 0,
+      expense: 0,
+      endBalance: account.currentBalance
+    };
+    return {
+      account,
+      monthRow,
+      startBalance: monthRow.endBalance - monthRow.income + monthRow.expense
+    };
+  });
+  const totalCurrentBalance = state.accounts.reduce((total, account) => total + account.currentBalance, 0);
+  const totalInitialBalance = state.accounts.reduce((total, account) => total + account.initialBalance, 0);
+  const startBalance = accountSummaries.reduce((total, item) => total + item.startBalance, 0);
+  const income = accountSummaries.reduce((total, item) => total + item.monthRow.income, 0);
+  const expense = accountSummaries.reduce((total, item) => total + item.monthRow.expense, 0);
+  const endBalance = accountSummaries.reduce((total, item) => total + item.monthRow.endBalance, 0);
+  const monthResult = income - expense;
+  els.dashboardAccountBadge.textContent = `${state.accounts.length}/3 contas`;
 
   els.dashboardAccountSummary.innerHTML = `
     <article class="dashboard-account-card">
       <div>
-        <span class="metric-label">Saldo atual</span>
-        <strong class="${account.currentBalance >= 0 ? "positive" : "negative"}">${money.format(account.currentBalance)}</strong>
-        <small>Saldo inicial: ${money.format(account.initialBalance)}</small>
+        <span class="metric-label">Saldo atual total</span>
+        <strong class="${totalCurrentBalance >= 0 ? "positive" : "negative"}">${money.format(totalCurrentBalance)}</strong>
+        <small>Saldo inicial total: ${money.format(totalInitialBalance)}</small>
       </div>
     </article>
     <div class="dashboard-account-stats">
@@ -423,20 +452,29 @@ function renderDashboardAccountSummary(summary) {
       </article>
       <article>
         <span>Entrou</span>
-        <strong class="positive">${money.format(monthRow.income)}</strong>
+        <strong class="positive">${money.format(income)}</strong>
       </article>
       <article>
         <span>Saiu</span>
-        <strong class="negative">${money.format(monthRow.expense)}</strong>
+        <strong class="negative">${money.format(expense)}</strong>
       </article>
       <article>
         <span>Final do mês</span>
-        <strong class="${monthRow.endBalance >= 0 ? "positive" : "negative"}">${money.format(monthRow.endBalance)}</strong>
+        <strong class="${endBalance >= 0 ? "positive" : "negative"}">${money.format(endBalance)}</strong>
       </article>
       <article>
         <span>Resultado</span>
         <strong class="${monthResult >= 0 ? "positive" : "negative"}">${money.format(monthResult)}</strong>
       </article>
+    </div>
+    <div class="dashboard-account-breakdown">
+      ${accountSummaries.map(({ account, monthRow }) => `
+        <article>
+          <span>${escapeHtml(account.name)}</span>
+          <strong class="${account.currentBalance >= 0 ? "positive" : "negative"}">${money.format(account.currentBalance)}</strong>
+          <small>${money.format(monthRow.income)} entrou • ${money.format(monthRow.expense)} saiu</small>
+        </article>
+      `).join("")}
     </div>
   `;
 }
@@ -551,16 +589,12 @@ function renderTransactionGroup(container, items, emptyMessage) {
 }
 
 function renderAccounts() {
-  els.accountLimitBadge.textContent = `${Math.min(state.accounts.length, 1)}/1`;
+  els.accountLimitBadge.textContent = `${Math.min(state.accounts.length, 3)}/3`;
   if (!state.accounts.length) {
-    els.accountsList.innerHTML = '<div class="empty-state">Cadastre a conta da empresa.</div>';
-    els.accountMonthlyBalances.innerHTML = '<div class="empty-state">Os saldos mensais aparecem depois que a conta for cadastrada.</div>';
+    els.accountsList.innerHTML = '<div class="empty-state">Cadastre até 3 contas da empresa.</div>';
+    els.accountMonthlyBalances.innerHTML = '<div class="empty-state">Os saldos mensais aparecem depois que uma conta for cadastrada.</div>';
     return;
   }
-
-  const primaryAccount = state.accounts[0];
-  els.accountNameInput.value = primaryAccount.name;
-  els.accountBalanceInput.value = String(primaryAccount.initialBalance).replace(".", ",");
 
   els.accountsList.innerHTML = state.accounts
     .map((account) => `

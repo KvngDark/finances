@@ -65,11 +65,11 @@
               </article>
             </section>
 
-            <section class="account-summary-panel" aria-label="Resumo da conta">
+            <section class="account-summary-panel" aria-label="Resumo das contas">
               <div class="section-heading">
                 <div>
-                  <p class="eyebrow">Conta da empresa</p>
-                  <h2>Resumo da conta</h2>
+                  <p class="eyebrow">Contas da empresa</p>
+                  <h2>Resumo das contas</h2>
                 </div>
                 <span id="dashboardAccountBadge" class="soft-badge">--</span>
               </div>
@@ -121,6 +121,11 @@
                   <input id="kindExpense" type="radio" name="kind" value="expense">
                   <label for="kindExpense">Saída</label>
                 </div>
+
+                <label>
+                  <span>Conta</span>
+                  <select id="accountSelect" name="accountId" required></select>
+                </label>
 
                 <label>
                   <span>Valor</span>
@@ -207,10 +212,10 @@
             <section class="form-panel">
               <div class="section-heading">
                 <div>
-                  <p class="eyebrow">Conta única</p>
-                  <h2>Conta da empresa</h2>
+                  <p class="eyebrow">Até 3 contas</p>
+                  <h2>Contas da empresa</h2>
                 </div>
-                <span id="accountLimitBadge" class="soft-badge">0/1</span>
+                <span id="accountLimitBadge" class="soft-badge">0/3</span>
               </div>
               <form id="accountForm" class="entry-form">
                 <label>
@@ -221,7 +226,7 @@
                   <span>Saldo inicial</span>
                   <input id="accountBalanceInput" name="balance" inputmode="decimal" placeholder="0,00" required>
                 </label>
-                <button class="primary-button" type="submit">Salvar conta</button>
+                <button class="primary-button" type="submit">Adicionar conta</button>
               </form>
               <p id="accountMessage" class="form-message" role="status"></p>
             </section>
@@ -229,7 +234,7 @@
               <div class="section-heading">
                 <div>
                   <p class="eyebrow">Saldos atualizados</p>
-                  <h2>Resumo da conta</h2>
+                  <h2>Resumo das contas</h2>
                 </div>
               </div>
               <div id="accountsList" class="account-grid"></div>

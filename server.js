@@ -15,7 +15,7 @@ const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || "0.0.0.0";
 
 const allowedKinds = new Set(["income", "expense"]);
-const accountLimit = 1;
+const accountLimit = 3;
 const defaultCategories = [
   { id: "combustivel", name: "Combustível", color: "#d89216" },
   { id: "dudas", name: "DUDAs", color: "#226c8a" },
@@ -240,7 +240,7 @@ async function listAccounts() {
 
 async function createAccount(account) {
   const accounts = await listAccounts();
-  if (accounts.length >= accountLimit) return updateAccount(accounts[0].id, account);
+  if (accounts.length >= accountLimit) throw new HttpError(400, "O limite é de 3 contas.");
   const created = { id: crypto.randomUUID(), ...account, createdAt: new Date().toISOString() };
 
   if (hasDatabaseConfig()) {
@@ -286,6 +286,7 @@ async function accountExists(id) {
 
 async function getPrimaryAccountId() {
   const accounts = await listAccounts();
+  if (accounts.length > 1) throw new HttpError(400, "Escolha a conta do lançamento.");
   if (accounts.length) return accounts[0].id;
   const account = await createAccount({ name: "Conta principal", initialBalance: 0 });
   return account.id;

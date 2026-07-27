@@ -1,6 +1,6 @@
 # Controle financeiro
 
-Dashboard responsivo para acompanhar entradas, saídas, saldo da conta principal e resultado mês a mês.
+Dashboard responsivo para acompanhar entradas, saídas, saldos de até 3 contas e resultado mês a mês.
 
 ## Rodar no computador
 
@@ -14,9 +14,9 @@ Sem credenciais do TiDB, o app usa um arquivo local em `data/transactions.json`.
 
 ## Recursos
 
-- Cadastro de uma conta principal da empresa, com saldo inicial e saldo atual.
-- Tela de saldos mensais da conta, carregando o saldo final de um mês para o próximo.
-- Lançamentos de entrada e saída vinculados automaticamente à conta principal.
+- Cadastro de até 3 contas da empresa, com saldo inicial e saldo atual.
+- Tela de saldos mensais por conta, carregando o saldo final de um mês para o próximo.
+- Lançamentos de entrada e saída vinculados à conta escolhida.
 - Saídas com categoria obrigatória e filtro por categoria no histórico.
 - Categorias abertas: já inclui Cartório e permite criar novas categorias além de Outros.
 - Edição e remoção de lançamentos.
@@ -32,7 +32,7 @@ O servidor cria as tabelas automaticamente. Se preferir criar manualmente, use `
 
 Tabelas principais da tela atual:
 
-- `finance_accounts`: conta principal e saldo inicial.
+- `finance_accounts`: contas e saldo inicial.
 - `finance_categories`: categorias de saída.
 - `finance_incomes`: entradas.
 - `finance_expenses`: saídas.
