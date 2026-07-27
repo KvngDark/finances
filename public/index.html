@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Controle financeiro</title>
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <div class="app-shell">
@@ -12,8 +12,6 @@
         <nav class="view-tabs" aria-label="Telas">
           <button class="view-tab active" type="button" data-view="dashboardView">Painel</button>
           <button class="view-tab" type="button" data-view="accountsView">Contas</button>
-          <button class="view-tab" type="button" data-view="documentsView">Serviços</button>
-          <button class="view-tab" type="button" data-view="storesView">Lojas</button>
           <button class="view-tab" type="button" data-view="categoriesView">Categorias</button>
         </nav>
 
@@ -67,6 +65,17 @@
               </article>
             </section>
 
+            <section class="account-summary-panel" aria-label="Resumo da conta">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Conta da empresa</p>
+                  <h2>Resumo da conta</h2>
+                </div>
+                <span id="dashboardAccountBadge" class="soft-badge">--</span>
+              </div>
+              <div id="dashboardAccountSummary" class="dashboard-account-summary"></div>
+            </section>
+
             <section class="chart-panel flow-panel">
               <div class="section-heading">
                 <div>
@@ -114,11 +123,6 @@
                 </div>
 
                 <label>
-                  <span>Conta</span>
-                  <select id="accountSelect" name="accountId" required></select>
-                </label>
-
-                <label>
                   <span>Valor</span>
                   <input id="amountInput" name="amount" inputmode="decimal" placeholder="0,00" required>
                 </label>
@@ -126,11 +130,6 @@
                 <label>
                   <span>Data</span>
                   <input id="dateInput" name="occurredAt" type="date" required>
-                </label>
-
-                <label>
-                  <span>Documento</span>
-                  <select id="transactionDocumentSelect" name="documentId"></select>
                 </label>
 
                 <label id="categoryField">
@@ -208,10 +207,10 @@
             <section class="form-panel">
               <div class="section-heading">
                 <div>
-                  <p class="eyebrow">Até 3 contas</p>
-                  <h2>Contas da empresa</h2>
+                  <p class="eyebrow">Conta única</p>
+                  <h2>Conta da empresa</h2>
                 </div>
-                <span id="accountLimitBadge" class="soft-badge">0/3</span>
+                <span id="accountLimitBadge" class="soft-badge">0/1</span>
               </div>
               <form id="accountForm" class="entry-form">
                 <label>
@@ -230,7 +229,7 @@
               <div class="section-heading">
                 <div>
                   <p class="eyebrow">Saldos atualizados</p>
-                  <h2>Resumo das contas</h2>
+                  <h2>Resumo da conta</h2>
                 </div>
               </div>
               <div id="accountsList" class="account-grid"></div>
@@ -241,136 +240,6 @@
                 </div>
               </div>
               <div id="accountMonthlyBalances" class="balance-tables"></div>
-            </section>
-          </div>
-        </section>
-
-        <section id="documentsView" class="view">
-          <div class="management-grid">
-            <section class="form-panel">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">Novo processo</p>
-                  <h2>Serviço/documento</h2>
-                </div>
-              </div>
-              <form id="documentForm" class="entry-form">
-                <label>
-                  <span>Nome do serviço/documento</span>
-                  <input id="documentTitleInput" name="title" placeholder="Ex.: Primeira licença Jeep Recreio" required>
-                </label>
-                <label>
-                  <span>Loja</span>
-                  <select id="documentStoreSelect" name="storeId"></select>
-                </label>
-                <label>
-                  <span>Data</span>
-                  <input id="documentDateInput" name="openedAt" type="date" required>
-                </label>
-                <label>
-                  <span>Status</span>
-                  <select id="documentStatusSelect" name="status">
-                    <option value="novo">Novo</option>
-                    <option value="andamento">Em andamento</option>
-                    <option value="pendente">Pendente</option>
-                    <option value="concluido">Concluído</option>
-                  </select>
-                </label>
-                <label class="wide-field">
-                  <span>Observações</span>
-                  <textarea id="documentNotesInput" name="notes" rows="3"></textarea>
-                </label>
-                <button class="primary-button" type="submit">Salvar documento</button>
-              </form>
-              <p id="documentMessage" class="form-message" role="status"></p>
-            </section>
-
-            <section class="form-panel">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">Movimento do processo</p>
-                  <h2>Gasto ou entrada</h2>
-                </div>
-              </div>
-              <form id="documentMovementForm" class="entry-form">
-                <label>
-                  <span>Documento</span>
-                  <select id="movementDocumentSelect" required></select>
-                </label>
-                <label>
-                  <span>Tipo</span>
-                  <select id="movementKindSelect">
-                    <option value="expense">Saída</option>
-                    <option value="income">Entrada</option>
-                  </select>
-                </label>
-                <label>
-                  <span>Conta</span>
-                  <select id="movementAccountSelect" required></select>
-                </label>
-                <label>
-                  <span>Valor</span>
-                  <input id="movementAmountInput" inputmode="decimal" placeholder="0,00" required>
-                </label>
-                <label>
-                  <span>Data</span>
-                  <input id="movementDateInput" type="date" required>
-                </label>
-                <label id="movementCategoryField">
-                  <span>Categoria</span>
-                  <select id="movementCategorySelect"></select>
-                </label>
-                <label class="wide-field">
-                  <span id="movementDescriptionLabel">Descrição do gasto</span>
-                  <textarea id="movementDescriptionInput" rows="3" required></textarea>
-                </label>
-                <button class="primary-button" type="submit">Lançar no documento</button>
-              </form>
-              <p id="movementMessage" class="form-message" role="status"></p>
-            </section>
-
-            <section class="transactions-panel wide-management">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">Acompanhamento</p>
-                  <h2>Serviços, processos e lucro</h2>
-                </div>
-              </div>
-              <div id="documentsList" class="document-grid"></div>
-            </section>
-          </div>
-        </section>
-
-        <section id="storesView" class="view">
-          <div class="management-grid">
-            <section class="form-panel">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">Origem dos documentos</p>
-                  <h2>Lojas</h2>
-                </div>
-              </div>
-              <form id="storeForm" class="entry-form">
-                <label>
-                  <span>Nome da loja</span>
-                  <input id="storeNameInput" placeholder="Ex.: Jeep Recreio" required>
-                </label>
-                <label>
-                  <span>Data de chegada</span>
-                  <input id="storeArrivalDateInput" type="date" required>
-                </label>
-                <button class="primary-button" type="submit">Salvar loja</button>
-              </form>
-              <p id="storeMessage" class="form-message" role="status"></p>
-            </section>
-            <section class="transactions-panel">
-              <div class="section-heading">
-                <div>
-                  <p class="eyebrow">Cadastradas</p>
-                  <h2>Lojas de origem</h2>
-                </div>
-              </div>
-              <div id="storesList" class="simple-list"></div>
             </section>
           </div>
         </section>
@@ -411,6 +280,6 @@
       </main>
     </div>
 
-    <script src="/app.js" type="module"></script>
+    <script src="app.js" type="module"></script>
   </body>
 </html>

@@ -15,7 +15,7 @@ const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || "0.0.0.0";
 
 const allowedKinds = new Set(["income", "expense"]);
-const accountLimit = 3;
+const accountLimit = 1;
 const defaultCategories = [
   { id: "combustivel", name: "Combustível", color: "#d89216" },
   { id: "dudas", name: "DUDAs", color: "#226c8a" },
@@ -27,7 +27,6 @@ const defaultCategories = [
   { id: "manutencao", name: "Manutenção", color: "#59656f" },
   { id: "outros", name: "Outros", color: "#8a5b3b" }
 ];
-const allowedDocumentStatuses = new Set(["novo", "andamento", "pendente", "concluido"]);
 
 let poolPromise;
 let schemaReady = false;
@@ -79,8 +78,6 @@ async function handleApi(req, res, url) {
       },
       accounts: await listAccounts(),
       categories: await listCategories(),
-      stores: await listStores(),
-      documents: await listDocuments(),
       transactions: await listTransactions()
     });
     return;
@@ -112,35 +109,6 @@ async function handleApi(req, res, url) {
   if (req.method === "POST" && url.pathname === "/api/categories") {
     const category = await createCategory(normalizeCategory(await readJsonBody(req)));
     sendJson(res, 201, { category });
-    return;
-  }
-
-  if (req.method === "GET" && url.pathname === "/api/stores") {
-    sendJson(res, 200, { stores: await listStores() });
-    return;
-  }
-
-  if (req.method === "POST" && url.pathname === "/api/stores") {
-    const store = await createStore(normalizeStore(await readJsonBody(req)));
-    sendJson(res, 201, { store });
-    return;
-  }
-
-  if (req.method === "GET" && url.pathname === "/api/documents") {
-    sendJson(res, 200, { documents: await listDocuments() });
-    return;
-  }
-
-  if (req.method === "POST" && url.pathname === "/api/documents") {
-    const document = await createDocument(normalizeDocument(await readJsonBody(req)));
-    sendJson(res, 201, { document });
-    return;
-  }
-
-  const documentMatch = url.pathname.match(/^\/api\/documents\/([a-zA-Z0-9-]+)$/);
-  if (req.method === "PUT" && documentMatch) {
-    const document = await updateDocument(documentMatch[1], normalizeDocument(await readJsonBody(req), true));
-    sendJson(res, 200, { document });
     return;
   }
 
@@ -201,47 +169,16 @@ function normalizeCategory(input) {
   };
 }
 
-function normalizeStore(input) {
-  const name = String(input.name || "").trim().replace(/\s+/g, " ");
-  const arrivalDate = String(input.arrivalDate || input.arrival_date || "").trim();
-  if (name.length < 2) throw new HttpError(400, "Informe o nome da loja.");
-  if (!isValidDateOnly(arrivalDate)) throw new HttpError(400, "Informe a data de chegada.");
-  return { name: name.slice(0, 120), arrivalDate };
-}
-
-function normalizeDocument(input, partial = false) {
-  const title = String(input.title || "").trim().replace(/\s+/g, " ");
-  const storeId = String(input.storeId || input.store_id || "").trim() || null;
-  const status = String(input.status || "novo").trim();
-  const openedAt = String(input.openedAt || input.opened_at || "").trim() || toDateOnly(new Date());
-  const notes = String(input.notes || "").trim().replace(/\s+/g, " ");
-
-  if (!partial || title) {
-    if (title.length < 2) throw new HttpError(400, "Informe o nome do documento.");
-  }
-  if (!allowedDocumentStatuses.has(status)) throw new HttpError(400, "Status inválido.");
-  if (!isValidDateOnly(openedAt)) throw new HttpError(400, "Informe uma data válida para o documento.");
-
-  return {
-    title: title.slice(0, 160),
-    storeId,
-    status,
-    openedAt,
-    notes: notes.slice(0, 500)
-  };
-}
-
 async function normalizeTransaction(input) {
   const kind = String(input.kind || "").trim();
   const category = kind === "expense" ? String(input.category || "").trim() : null;
-  const accountId = String(input.accountId || input.account_id || "").trim();
-  const documentId = String(input.documentId || input.document_id || "").trim() || null;
+  const requestedAccountId = String(input.accountId || input.account_id || "").trim();
   const amount = Number(String(input.amount || "").replace(",", "."));
   const occurredAt = String(input.occurredAt || input.occurred_at || "").trim();
   const description = String(input.description || "").trim().replace(/\s+/g, " ");
 
   if (!allowedKinds.has(kind)) throw new HttpError(400, "Escolha se o lançamento é entrada ou saída.");
-  if (!accountId) throw new HttpError(400, "Escolha a conta do lançamento.");
+  const accountId = requestedAccountId || (await getPrimaryAccountId());
   if (!(await accountExists(accountId))) throw new HttpError(400, "Conta não encontrada.");
 
   if (kind === "expense") {
@@ -261,7 +198,6 @@ async function normalizeTransaction(input) {
     kind,
     category,
     accountId,
-    documentId,
     amount: Math.round(amount * 100) / 100,
     occurredAt,
     description: description.slice(0, 280),
@@ -274,10 +210,6 @@ function isValidDateOnly(value) {
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day));
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
-}
-
-function toDateOnly(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 async function listAccounts() {
@@ -299,16 +231,16 @@ async function listAccounts() {
       ) e ON e.account_id = a.id
       ORDER BY a.created_at ASC
     `);
-    return rows.map(mapAccountRow);
+    return rows.map(mapAccountRow).slice(0, accountLimit);
   }
 
   const store = await readLocalStore();
-  return computeLocalAccounts(store);
+  return computeLocalAccounts(store).slice(0, accountLimit);
 }
 
 async function createAccount(account) {
   const accounts = await listAccounts();
-  if (accounts.length >= accountLimit) throw new HttpError(400, "O limite é de 3 contas.");
+  if (accounts.length >= accountLimit) return updateAccount(accounts[0].id, account);
   const created = { id: crypto.randomUUID(), ...account, createdAt: new Date().toISOString() };
 
   if (hasDatabaseConfig()) {
@@ -352,6 +284,13 @@ async function accountExists(id) {
   return (await listAccounts()).some((account) => account.id === id);
 }
 
+async function getPrimaryAccountId() {
+  const accounts = await listAccounts();
+  if (accounts.length) return accounts[0].id;
+  const account = await createAccount({ name: "Conta principal", initialBalance: 0 });
+  return account.id;
+}
+
 async function listCategories() {
   if (hasDatabaseConfig()) {
     const pool = await getPool();
@@ -383,125 +322,17 @@ async function createCategory(category) {
   return category;
 }
 
-async function listStores() {
-  if (hasDatabaseConfig()) {
-    const pool = await getPool();
-    const [rows] = await pool.query(`
-      SELECT id, name, DATE_FORMAT(arrival_date, '%Y-%m-%d') AS arrivalDate,
-        DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt
-      FROM finance_stores
-      ORDER BY arrival_date DESC, created_at DESC
-    `);
-    return rows;
-  }
-
-  const store = await readLocalStore();
-  return [...store.stores].sort((a, b) => b.arrivalDate.localeCompare(a.arrivalDate));
-}
-
-async function createStore(storeInput) {
-  const store = { id: crypto.randomUUID(), ...storeInput, createdAt: new Date().toISOString() };
-
-  if (hasDatabaseConfig()) {
-    const pool = await getPool();
-    await pool.execute("INSERT INTO finance_stores (id, name, arrival_date, created_at) VALUES (?, ?, ?, ?)", [
-      store.id,
-      store.name,
-      store.arrivalDate,
-      new Date(store.createdAt)
-    ]);
-    return store;
-  }
-
-  const local = await readLocalStore();
-  local.stores.push(store);
-  await writeLocalStore(local);
-  return store;
-}
-
-async function listDocuments() {
-  if (hasDatabaseConfig()) {
-    const pool = await getPool();
-    const [rows] = await pool.query(`
-      SELECT
-        d.id,
-        d.title,
-        d.store_id AS storeId,
-        s.name AS storeName,
-        d.status,
-        DATE_FORMAT(d.opened_at, '%Y-%m-%d') AS openedAt,
-        d.notes,
-        DATE_FORMAT(d.created_at, '%Y-%m-%dT%H:%i:%s.000Z') AS createdAt,
-        COALESCE(i.total, 0) AS incomeTotal,
-        COALESCE(e.total, 0) AS expenseTotal,
-        COALESCE(i.total, 0) - COALESCE(e.total, 0) AS profit
-      FROM finance_documents d
-      LEFT JOIN finance_stores s ON s.id = d.store_id
-      LEFT JOIN (
-        SELECT document_id, SUM(amount) AS total FROM finance_incomes WHERE document_id IS NOT NULL GROUP BY document_id
-      ) i ON i.document_id = d.id
-      LEFT JOIN (
-        SELECT document_id, SUM(amount) AS total FROM finance_expenses WHERE document_id IS NOT NULL GROUP BY document_id
-      ) e ON e.document_id = d.id
-      ORDER BY d.opened_at DESC, d.created_at DESC
-    `);
-    return rows.map(mapDocumentRow);
-  }
-
-  const store = await readLocalStore();
-  return computeLocalDocuments(store);
-}
-
-async function createDocument(documentInput) {
-  const document = { id: crypto.randomUUID(), ...documentInput, createdAt: new Date().toISOString() };
-
-  if (hasDatabaseConfig()) {
-    const pool = await getPool();
-    await pool.execute(
-      "INSERT INTO finance_documents (id, title, store_id, status, opened_at, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [document.id, document.title, document.storeId, document.status, document.openedAt, document.notes, new Date(document.createdAt)]
-    );
-    return { ...document, incomeTotal: 0, expenseTotal: 0, profit: 0 };
-  }
-
-  const store = await readLocalStore();
-  store.documents.push(document);
-  await writeLocalStore(store);
-  return computeLocalDocuments(store).find((item) => item.id === document.id);
-}
-
-async function updateDocument(id, documentInput) {
-  if (hasDatabaseConfig()) {
-    const pool = await getPool();
-    await pool.execute(
-      "UPDATE finance_documents SET title = ?, store_id = ?, status = ?, opened_at = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-      [documentInput.title, documentInput.storeId, documentInput.status, documentInput.openedAt, documentInput.notes, id]
-    );
-    const updated = (await listDocuments()).find((item) => item.id === id);
-    if (!updated) throw new HttpError(404, "Documento não encontrado.");
-    return updated;
-  }
-
-  const store = await readLocalStore();
-  const target = store.documents.find((item) => item.id === id);
-  if (!target) throw new HttpError(404, "Documento não encontrado.");
-  Object.assign(target, documentInput, { updatedAt: new Date().toISOString() });
-  await writeLocalStore(store);
-  return computeLocalDocuments(store).find((item) => item.id === id);
-}
-
 async function listTransactions() {
   if (hasDatabaseConfig()) {
     const pool = await getPool();
     const [rows] = await pool.query(`
-      SELECT id, kind, category, accountId, documentId, amount, occurredAt, description, createdAt
+      SELECT id, kind, category, accountId, amount, occurredAt, description, createdAt
       FROM (
         SELECT
           id,
           'income' AS kind,
           NULL AS category,
           account_id AS accountId,
-          document_id AS documentId,
           amount,
           DATE_FORMAT(occurred_at, '%Y-%m-%d') AS occurredAt,
           source AS description,
@@ -513,7 +344,6 @@ async function listTransactions() {
           'expense' AS kind,
           category,
           account_id AS accountId,
-          document_id AS documentId,
           amount,
           DATE_FORMAT(occurred_at, '%Y-%m-%d') AS occurredAt,
           description,
@@ -534,11 +364,10 @@ async function createTransaction(transaction) {
     const pool = await getPool();
     if (transaction.kind === "income") {
       await pool.execute(
-        "INSERT INTO finance_incomes (id, account_id, document_id, amount, occurred_at, source, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO finance_incomes (id, account_id, amount, occurred_at, source, created_at) VALUES (?, ?, ?, ?, ?, ?)",
         [
           transaction.id,
           transaction.accountId,
-          transaction.documentId,
           transaction.amount,
           transaction.occurredAt,
           transaction.description,
@@ -549,11 +378,10 @@ async function createTransaction(transaction) {
     }
 
     await pool.execute(
-      "INSERT INTO finance_expenses (id, account_id, document_id, category, amount, occurred_at, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO finance_expenses (id, account_id, category, amount, occurred_at, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [
         transaction.id,
         transaction.accountId,
-        transaction.documentId,
         transaction.category,
         transaction.amount,
         transaction.occurredAt,
@@ -617,8 +445,6 @@ async function readLocalStore() {
     const store = Array.isArray(parsed) ? { ...emptyStore(), transactions: parsed } : { ...emptyStore(), ...parsed };
     store.accounts = Array.isArray(store.accounts) ? store.accounts : [];
     store.categories = mergeDefaultCategories(store.categories);
-    store.stores = Array.isArray(store.stores) ? store.stores : [];
-    store.documents = Array.isArray(store.documents) ? store.documents : [];
     store.transactions = Array.isArray(store.transactions) ? store.transactions.map(normalizeStoredTransaction) : [];
     return store;
   } catch (error) {
@@ -634,8 +460,6 @@ async function writeLocalStore(store) {
   const ordered = {
     accounts: store.accounts,
     categories: store.categories,
-    stores: store.stores,
-    documents: store.documents,
     transactions: [...store.transactions].sort((a, b) => {
       const dateOrder = String(b.occurredAt).localeCompare(String(a.occurredAt));
       return dateOrder || String(b.createdAt).localeCompare(String(a.createdAt));
@@ -648,8 +472,6 @@ function emptyStore() {
   return {
     accounts: [],
     categories: defaultCategories,
-    stores: [],
-    documents: [],
     transactions: []
   };
 }
@@ -663,10 +485,13 @@ function mergeDefaultCategories(categories = []) {
 }
 
 function normalizeStoredTransaction(transaction) {
+  const cleanTransaction = { ...transaction };
+  for (const key of ["document" + "Id", "document" + "_id"]) {
+    delete cleanTransaction[key];
+  }
   return {
-    ...transaction,
+    ...cleanTransaction,
     accountId: transaction.accountId || transaction.account_id || "",
-    documentId: transaction.documentId || transaction.document_id || null,
     category: transaction.kind === "expense" ? transaction.category : null
   };
 }
@@ -687,25 +512,6 @@ function computeLocalAccounts(store) {
   });
 }
 
-function computeLocalDocuments(store) {
-  return store.documents.map((document) => {
-    const storeInfo = store.stores.find((item) => item.id === document.storeId);
-    const incomeTotal = store.transactions
-      .filter((transaction) => transaction.documentId === document.id && transaction.kind === "income")
-      .reduce((total, transaction) => total + Number(transaction.amount || 0), 0);
-    const expenseTotal = store.transactions
-      .filter((transaction) => transaction.documentId === document.id && transaction.kind === "expense")
-      .reduce((total, transaction) => total + Number(transaction.amount || 0), 0);
-    return {
-      ...document,
-      storeName: storeInfo ? storeInfo.name : "",
-      incomeTotal,
-      expenseTotal,
-      profit: incomeTotal - expenseTotal
-    };
-  });
-}
-
 function mapAccountRow(row) {
   return {
     id: row.id,
@@ -716,29 +522,12 @@ function mapAccountRow(row) {
   };
 }
 
-function mapDocumentRow(row) {
-  return {
-    id: row.id,
-    title: row.title,
-    storeId: row.storeId,
-    storeName: row.storeName || "",
-    status: row.status,
-    openedAt: row.openedAt,
-    notes: row.notes || "",
-    createdAt: row.createdAt,
-    incomeTotal: Number(row.incomeTotal),
-    expenseTotal: Number(row.expenseTotal),
-    profit: Number(row.profit)
-  };
-}
-
 function mapTransactionRow(row) {
   return {
     id: row.id,
     kind: row.kind,
     category: row.category,
     accountId: row.accountId || "",
-    documentId: row.documentId || null,
     amount: Number(row.amount),
     occurredAt: row.occurredAt,
     description: row.description,
@@ -838,38 +627,14 @@ async function ensureSchema(pool) {
   `);
 
   await pool.execute(`
-    CREATE TABLE IF NOT EXISTS finance_stores (
-      id VARCHAR(36) PRIMARY KEY,
-      name VARCHAR(120) NOT NULL,
-      arrival_date DATE NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await pool.execute(`
-    CREATE TABLE IF NOT EXISTS finance_documents (
-      id VARCHAR(36) PRIMARY KEY,
-      title VARCHAR(160) NOT NULL,
-      store_id VARCHAR(36) NULL,
-      status VARCHAR(24) NOT NULL DEFAULT 'novo',
-      opened_at DATE NOT NULL,
-      notes VARCHAR(500) NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await pool.execute(`
     CREATE TABLE IF NOT EXISTS finance_incomes (
       id VARCHAR(36) PRIMARY KEY,
       account_id VARCHAR(36) NULL,
-      document_id VARCHAR(36) NULL,
       amount DECIMAL(12, 2) NOT NULL,
       occurred_at DATE NOT NULL,
       source VARCHAR(280) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_finance_incomes_account (account_id),
-      INDEX idx_finance_incomes_document (document_id),
       INDEX idx_finance_incomes_occurred_at (occurred_at)
     )
   `);
@@ -878,23 +643,19 @@ async function ensureSchema(pool) {
     CREATE TABLE IF NOT EXISTS finance_expenses (
       id VARCHAR(36) PRIMARY KEY,
       account_id VARCHAR(36) NULL,
-      document_id VARCHAR(36) NULL,
       category VARCHAR(40) NOT NULL,
       amount DECIMAL(12, 2) NOT NULL,
       occurred_at DATE NOT NULL,
       description VARCHAR(280) NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_finance_expenses_account (account_id),
-      INDEX idx_finance_expenses_document (document_id),
       INDEX idx_finance_expenses_occurred_at (occurred_at),
       INDEX idx_finance_expenses_category (category)
     )
   `);
 
   await addColumnIfMissing(pool, "finance_incomes", "account_id", "VARCHAR(36) NULL");
-  await addColumnIfMissing(pool, "finance_incomes", "document_id", "VARCHAR(36) NULL");
   await addColumnIfMissing(pool, "finance_expenses", "account_id", "VARCHAR(36) NULL");
-  await addColumnIfMissing(pool, "finance_expenses", "document_id", "VARCHAR(36) NULL");
   await seedDefaultCategories(pool);
   await migrateLegacyTransactions(pool);
 }

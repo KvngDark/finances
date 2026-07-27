@@ -289,6 +289,7 @@ textarea:focus {
 .balance-panel,
 .form-panel,
 .category-panel,
+.account-summary-panel,
 .transactions-panel {
   border: 1px solid rgba(22, 32, 31, 0.08);
   border-radius: 8px;
@@ -348,6 +349,7 @@ textarea:focus {
 .balance-panel,
 .form-panel,
 .category-panel,
+.account-summary-panel,
 .transactions-panel {
   padding: 18px;
 }
@@ -370,6 +372,76 @@ textarea:focus {
 .balance-panel {
   display: grid;
   align-content: start;
+}
+
+.account-summary-panel {
+  grid-column: 1 / -1;
+}
+
+.account-summary-panel .soft-badge {
+  max-width: min(320px, 46vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-account-summary {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.45fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.dashboard-account-card,
+.dashboard-account-stats article {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.dashboard-account-card {
+  display: grid;
+  min-height: 126px;
+  align-items: center;
+  padding: 16px;
+}
+
+.dashboard-account-card strong {
+  display: block;
+  margin: 7px 0;
+  font-size: clamp(1.5rem, 3vw, 2.15rem);
+  line-height: 1.05;
+  word-break: break-word;
+}
+
+.dashboard-account-card small {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.dashboard-account-stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-account-stats article {
+  display: grid;
+  min-height: 98px;
+  align-content: space-between;
+  gap: 10px;
+  padding: 14px;
+}
+
+.dashboard-account-stats span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.dashboard-account-stats strong {
+  font-size: clamp(1rem, 1.8vw, 1.28rem);
+  line-height: 1.12;
+  word-break: break-word;
 }
 
 .donut-wrap {
@@ -873,6 +945,14 @@ textarea:focus {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .dashboard-account-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-account-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .management-grid,
   .balance-tables,
   .document-grid {
@@ -930,6 +1010,19 @@ textarea:focus {
   .metrics-grid,
   .entry-form {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-account-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .account-summary-panel .section-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .account-summary-panel .soft-badge {
+    max-width: 100%;
   }
 
   .metric-card {
@@ -1006,6 +1099,7 @@ textarea:focus {
   .balance-panel,
   .form-panel,
   .category-panel,
+  .account-summary-panel,
   .transactions-panel,
   .period-strip,
   .metric-card {

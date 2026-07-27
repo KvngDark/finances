@@ -25,20 +25,12 @@ const monthNames = [
   "Dezembro"
 ];
 const shortMonthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-const statusLabels = {
-  novo: "Novo",
-  andamento: "Em andamento",
-  pendente: "Pendente",
-  concluido: "Concluído"
-};
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const numberFormat = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 
 const state = {
   accounts: [],
   categories: fallbackCategories,
-  stores: [],
-  documents: [],
   transactions: [],
   selectedMonth: new Date().getMonth(),
   selectedYear: new Date().getFullYear(),
@@ -69,10 +61,8 @@ const els = {
   balanceDonut: document.querySelector("#balanceDonut"),
   donutValue: document.querySelector("#donutValue"),
   transactionForm: document.querySelector("#transactionForm"),
-  accountSelect: document.querySelector("#accountSelect"),
   amountInput: document.querySelector("#amountInput"),
   dateInput: document.querySelector("#dateInput"),
-  transactionDocumentSelect: document.querySelector("#transactionDocumentSelect"),
   categoryField: document.querySelector("#categoryField"),
   categorySelect: document.querySelector("#categorySelect"),
   descriptionLabel: document.querySelector("#descriptionLabel"),
@@ -87,6 +77,8 @@ const els = {
   incomeTableCount: document.querySelector("#incomeTableCount"),
   expenseTableCount: document.querySelector("#expenseTableCount"),
   transactionCount: document.querySelector("#transactionCount"),
+  dashboardAccountBadge: document.querySelector("#dashboardAccountBadge"),
+  dashboardAccountSummary: document.querySelector("#dashboardAccountSummary"),
   accountForm: document.querySelector("#accountForm"),
   accountLimitBadge: document.querySelector("#accountLimitBadge"),
   accountNameInput: document.querySelector("#accountNameInput"),
@@ -94,30 +86,6 @@ const els = {
   accountMessage: document.querySelector("#accountMessage"),
   accountsList: document.querySelector("#accountsList"),
   accountMonthlyBalances: document.querySelector("#accountMonthlyBalances"),
-  documentForm: document.querySelector("#documentForm"),
-  documentTitleInput: document.querySelector("#documentTitleInput"),
-  documentStoreSelect: document.querySelector("#documentStoreSelect"),
-  documentDateInput: document.querySelector("#documentDateInput"),
-  documentStatusSelect: document.querySelector("#documentStatusSelect"),
-  documentNotesInput: document.querySelector("#documentNotesInput"),
-  documentMessage: document.querySelector("#documentMessage"),
-  documentMovementForm: document.querySelector("#documentMovementForm"),
-  movementDocumentSelect: document.querySelector("#movementDocumentSelect"),
-  movementKindSelect: document.querySelector("#movementKindSelect"),
-  movementAccountSelect: document.querySelector("#movementAccountSelect"),
-  movementAmountInput: document.querySelector("#movementAmountInput"),
-  movementDateInput: document.querySelector("#movementDateInput"),
-  movementCategoryField: document.querySelector("#movementCategoryField"),
-  movementCategorySelect: document.querySelector("#movementCategorySelect"),
-  movementDescriptionLabel: document.querySelector("#movementDescriptionLabel"),
-  movementDescriptionInput: document.querySelector("#movementDescriptionInput"),
-  movementMessage: document.querySelector("#movementMessage"),
-  documentsList: document.querySelector("#documentsList"),
-  storeForm: document.querySelector("#storeForm"),
-  storeNameInput: document.querySelector("#storeNameInput"),
-  storeArrivalDateInput: document.querySelector("#storeArrivalDateInput"),
-  storeMessage: document.querySelector("#storeMessage"),
-  storesList: document.querySelector("#storesList"),
   categoryForm: document.querySelector("#categoryForm"),
   categoryNameInput: document.querySelector("#categoryNameInput"),
   categoryColorInput: document.querySelector("#categoryColorInput"),
@@ -150,13 +118,9 @@ function bindEvents() {
     state.categoryFilter = els.categoryFilterSelect.value;
     renderDashboard();
   });
-  els.movementKindSelect.addEventListener("change", updateMovementKindFields);
   els.transactionForm.addEventListener("submit", handleTransactionSubmit);
   els.cancelEditButton.addEventListener("click", resetTransactionForm);
   els.accountForm.addEventListener("submit", handleAccountSubmit);
-  els.documentForm.addEventListener("submit", handleDocumentSubmit);
-  els.documentMovementForm.addEventListener("submit", handleDocumentMovementSubmit);
-  els.storeForm.addEventListener("submit", handleStoreSubmit);
   els.categoryForm.addEventListener("submit", handleCategorySubmit);
   window.addEventListener("resize", debounce(drawCharts, 150));
 
@@ -171,8 +135,6 @@ async function refreshAll() {
     const payload = await fetchJson("/api/bootstrap");
     state.accounts = payload.accounts || [];
     state.categories = payload.categories?.length ? payload.categories : fallbackCategories;
-    state.stores = payload.stores || [];
-    state.documents = payload.documents || [];
     state.transactions = payload.transactions || [];
     els.storageBadge.textContent = payload.config?.databaseConfigured ? "TiDB conectado" : "Modo local";
     els.storageBadge.title = payload.config?.databaseConfigured
@@ -190,12 +152,9 @@ async function refreshAll() {
 function renderAll() {
   renderSelects();
   updateKindFields();
-  updateMovementKindFields();
   renderDashboard();
   renderAccounts();
-  renderStores();
   renderCategories();
-  renderDocuments();
 }
 
 function showView(viewId) {
@@ -223,9 +182,6 @@ function buildMonthRail() {
 function setDefaultDates() {
   const today = toDateInputValue(new Date());
   els.dateInput.value = today;
-  els.documentDateInput.value = today;
-  els.movementDateInput.value = today;
-  els.storeArrivalDateInput.value = today;
 }
 
 function syncYearOptions() {
@@ -240,34 +196,16 @@ function syncYearOptions() {
 }
 
 function renderSelects() {
-  const accountOptions = state.accounts.length
-    ? state.accounts.map((account) => `<option value="${account.id}">${escapeHtml(account.name)}</option>`).join("")
-    : '<option value="">Cadastre uma conta</option>';
-  els.accountSelect.innerHTML = accountOptions;
-  els.movementAccountSelect.innerHTML = accountOptions;
-
   const categoryOptions = state.categories
     .map((category) => `<option value="${category.id}">${escapeHtml(category.name)}</option>`)
     .join("");
   els.categorySelect.innerHTML = categoryOptions;
-  els.movementCategorySelect.innerHTML = categoryOptions;
   els.categoryFilterSelect.innerHTML = `<option value="all">Todas as categorias</option>${categoryOptions}`;
   els.categoryFilterSelect.value = state.categoryFilter;
   if (els.categoryFilterSelect.value !== state.categoryFilter) {
     state.categoryFilter = "all";
     els.categoryFilterSelect.value = "all";
   }
-
-  const documentOptions = state.documents
-    .map((document) => `<option value="${document.id}">${escapeHtml(document.title)}</option>`)
-    .join("");
-  els.transactionDocumentSelect.innerHTML = `<option value="">Sem documento</option>${documentOptions}`;
-  els.movementDocumentSelect.innerHTML = documentOptions || '<option value="">Cadastre um documento</option>';
-
-  const storeOptions = state.stores
-    .map((store) => `<option value="${store.id}">${escapeHtml(store.name)}</option>`)
-    .join("");
-  els.documentStoreSelect.innerHTML = `<option value="">Sem loja</option>${storeOptions}`;
 }
 
 function updateKindFields() {
@@ -289,34 +227,14 @@ function updateKindFields() {
   els.descriptionInput.placeholder = `Ex.: ${selected ? selected.name : "Cartório do processo"}`;
 }
 
-function updateMovementKindFields() {
-  const kind = els.movementKindSelect.value;
-  if (kind === "income") {
-    els.movementCategoryField.hidden = true;
-    els.movementCategorySelect.required = false;
-    els.movementCategorySelect.disabled = true;
-    els.movementDescriptionLabel.textContent = "Origem da entrada";
-    els.movementDescriptionInput.placeholder = "Ex.: Pagamento do cliente";
-    return;
-  }
-
-  els.movementCategoryField.hidden = false;
-  els.movementCategorySelect.required = true;
-  els.movementCategorySelect.disabled = false;
-  els.movementDescriptionLabel.textContent = "Descrição do gasto";
-  els.movementDescriptionInput.placeholder = "Ex.: Cartório do processo";
-}
-
 async function handleTransactionSubmit(event) {
   event.preventDefault();
   if (state.isSaving) return;
   const kind = getSelectedKind();
   const payload = {
     kind,
-    accountId: els.accountSelect.value,
     amount: els.amountInput.value.trim(),
     occurredAt: els.dateInput.value,
-    documentId: els.transactionDocumentSelect.value,
     description: els.descriptionInput.value.trim()
   };
   if (kind === "expense") payload.category = els.categorySelect.value;
@@ -324,24 +242,6 @@ async function handleTransactionSubmit(event) {
     els.amountInput.value = "";
     els.descriptionInput.value = "";
   }, { allowEdit: true, resetMainForm: true });
-}
-
-async function handleDocumentMovementSubmit(event) {
-  event.preventDefault();
-  const kind = els.movementKindSelect.value;
-  const payload = {
-    kind,
-    accountId: els.movementAccountSelect.value,
-    amount: els.movementAmountInput.value.trim(),
-    occurredAt: els.movementDateInput.value,
-    documentId: els.movementDocumentSelect.value,
-    description: els.movementDescriptionInput.value.trim()
-  };
-  if (kind === "expense") payload.category = els.movementCategorySelect.value;
-  await saveTransaction(payload, els.movementMessage, () => {
-    els.movementAmountInput.value = "";
-    els.movementDescriptionInput.value = "";
-  });
 }
 
 async function saveTransaction(payload, messageElement, onSuccess, options = {}) {
@@ -373,10 +273,8 @@ function startEditTransaction(id) {
 
   state.editingTransactionId = id;
   document.querySelector(`#kind${transaction.kind === "income" ? "Income" : "Expense"}`).checked = true;
-  els.accountSelect.value = transaction.accountId || "";
   els.amountInput.value = String(transaction.amount).replace(".", ",");
   els.dateInput.value = transaction.occurredAt;
-  els.transactionDocumentSelect.value = transaction.documentId || "";
   els.descriptionInput.value = transaction.description;
   if (transaction.kind === "expense") {
     els.categorySelect.value = transaction.category || "";
@@ -426,50 +324,6 @@ async function handleAccountSubmit(event) {
   }
 }
 
-async function handleDocumentSubmit(event) {
-  event.preventDefault();
-  setMessage(els.documentMessage, "Salvando...");
-  try {
-    await fetchJson("/api/documents", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: els.documentTitleInput.value,
-        storeId: els.documentStoreSelect.value,
-        openedAt: els.documentDateInput.value,
-        status: els.documentStatusSelect.value,
-        notes: els.documentNotesInput.value
-      })
-    });
-    els.documentTitleInput.value = "";
-    els.documentNotesInput.value = "";
-    await refreshAll();
-    setMessage(els.documentMessage, "Documento salvo.");
-  } catch (error) {
-    setMessage(els.documentMessage, error.message || "Não foi possível salvar o documento.", true);
-  }
-}
-
-async function handleStoreSubmit(event) {
-  event.preventDefault();
-  setMessage(els.storeMessage, "Salvando...");
-  try {
-    await fetchJson("/api/stores", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: els.storeNameInput.value,
-        arrivalDate: els.storeArrivalDateInput.value
-      })
-    });
-    els.storeNameInput.value = "";
-    await refreshAll();
-    setMessage(els.storeMessage, "Loja salva.");
-  } catch (error) {
-    setMessage(els.storeMessage, error.message || "Não foi possível salvar a loja.", true);
-  }
-}
-
 async function handleCategorySubmit(event) {
   event.preventDefault();
   setMessage(els.categoryMessage, "Salvando...");
@@ -504,21 +358,6 @@ async function deleteTransaction(id) {
   }
 }
 
-async function updateDocumentStatus(id, status) {
-  const document = state.documents.find((item) => item.id === id);
-  if (!document) return;
-  try {
-    await fetchJson(`/api/documents/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...document, status })
-    });
-    await refreshAll();
-  } catch (error) {
-    setMessage(els.documentMessage, error.message || "Não foi possível atualizar o documento.", true);
-  }
-}
-
 function renderDashboard() {
   const monthly = getMonthlySeries(state.selectedYear);
   const current = monthly[state.selectedMonth];
@@ -549,9 +388,57 @@ function renderDashboard() {
   });
 
   renderDonut(current);
+  renderDashboardAccountSummary(current);
   renderCategoryBars(current);
   renderTransactions(current.items);
   drawCharts();
+}
+
+function renderDashboardAccountSummary(summary) {
+  const account = state.accounts[0];
+  if (!account) {
+    els.dashboardAccountBadge.textContent = "Sem conta";
+    els.dashboardAccountSummary.innerHTML = '<div class="empty-state">Cadastre a conta da empresa para acompanhar o saldo no painel.</div>';
+    return;
+  }
+
+  const rows = getAccountMonthlyBalances(account);
+  const monthRow = rows[state.selectedMonth] || { income: summary.income, expense: summary.expense, endBalance: account.currentBalance };
+  const startBalance = monthRow.endBalance - monthRow.income + monthRow.expense;
+  const monthResult = monthRow.income - monthRow.expense;
+  els.dashboardAccountBadge.textContent = account.name;
+
+  els.dashboardAccountSummary.innerHTML = `
+    <article class="dashboard-account-card">
+      <div>
+        <span class="metric-label">Saldo atual</span>
+        <strong class="${account.currentBalance >= 0 ? "positive" : "negative"}">${money.format(account.currentBalance)}</strong>
+        <small>Saldo inicial: ${money.format(account.initialBalance)}</small>
+      </div>
+    </article>
+    <div class="dashboard-account-stats">
+      <article>
+        <span>Início do mês</span>
+        <strong class="${startBalance >= 0 ? "positive" : "negative"}">${money.format(startBalance)}</strong>
+      </article>
+      <article>
+        <span>Entrou</span>
+        <strong class="positive">${money.format(monthRow.income)}</strong>
+      </article>
+      <article>
+        <span>Saiu</span>
+        <strong class="negative">${money.format(monthRow.expense)}</strong>
+      </article>
+      <article>
+        <span>Final do mês</span>
+        <strong class="${monthRow.endBalance >= 0 ? "positive" : "negative"}">${money.format(monthRow.endBalance)}</strong>
+      </article>
+      <article>
+        <span>Resultado</span>
+        <strong class="${monthResult >= 0 ? "positive" : "negative"}">${money.format(monthResult)}</strong>
+      </article>
+    </div>
+  `;
 }
 
 function renderDonut(summary) {
@@ -630,13 +517,11 @@ function renderTransactionGroup(container, items, emptyMessage) {
     .map((transaction) => {
       const category = findCategory(transaction.category);
       const account = findAccount(transaction.accountId);
-      const document = findDocument(transaction.documentId);
       const sign = transaction.kind === "income" ? "+" : "-";
       const amountClass = transaction.kind === "income" ? "positive" : "negative";
       const iconText = transaction.kind === "income" ? "E" : "S";
       const detail = [
         account ? account.name : "Conta não informada",
-        document ? document.title : null,
         transaction.kind === "expense" && category ? category.name : null
       ].filter(Boolean).join(" • ");
       return `
@@ -666,12 +551,16 @@ function renderTransactionGroup(container, items, emptyMessage) {
 }
 
 function renderAccounts() {
-  els.accountLimitBadge.textContent = `${state.accounts.length}/3`;
+  els.accountLimitBadge.textContent = `${Math.min(state.accounts.length, 1)}/1`;
   if (!state.accounts.length) {
-    els.accountsList.innerHTML = '<div class="empty-state">Cadastre as 3 contas da empresa.</div>';
-    els.accountMonthlyBalances.innerHTML = '<div class="empty-state">Os saldos mensais aparecem depois que uma conta for cadastrada.</div>';
+    els.accountsList.innerHTML = '<div class="empty-state">Cadastre a conta da empresa.</div>';
+    els.accountMonthlyBalances.innerHTML = '<div class="empty-state">Os saldos mensais aparecem depois que a conta for cadastrada.</div>';
     return;
   }
+
+  const primaryAccount = state.accounts[0];
+  els.accountNameInput.value = primaryAccount.name;
+  els.accountBalanceInput.value = String(primaryAccount.initialBalance).replace(".", ",");
 
   els.accountsList.innerHTML = state.accounts
     .map((account) => `
@@ -749,23 +638,6 @@ function getAccountMonthlyBalances(account) {
   });
 }
 
-function renderStores() {
-  if (!state.stores.length) {
-    els.storesList.innerHTML = '<div class="empty-state">Nenhuma loja cadastrada.</div>';
-    return;
-  }
-  els.storesList.innerHTML = state.stores
-    .map((store) => `
-      <article class="simple-row">
-        <div>
-          <strong>${escapeHtml(store.name)}</strong>
-          <span>Chegada em ${formatDate(store.arrivalDate)}</span>
-        </div>
-      </article>
-    `)
-    .join("");
-}
-
 function renderCategories() {
   els.categoriesList.innerHTML = state.categories
     .map((category) => `
@@ -778,44 +650,6 @@ function renderCategories() {
       </article>
     `)
     .join("");
-}
-
-function renderDocuments() {
-  if (!state.documents.length) {
-    els.documentsList.innerHTML = '<div class="empty-state">Nenhum documento lançado ainda.</div>';
-    return;
-  }
-
-  els.documentsList.innerHTML = state.documents
-    .map((document) => `
-      <article class="document-card">
-        <div class="document-card-top">
-          <div>
-            <p class="eyebrow">${escapeHtml(document.storeName || "Sem loja")}</p>
-            <h3>${escapeHtml(document.title)}</h3>
-          </div>
-          <strong class="${document.profit >= 0 ? "positive" : "negative"}">${money.format(document.profit)}</strong>
-        </div>
-        <div class="document-stats">
-          <span>Entradas: ${money.format(document.incomeTotal || 0)}</span>
-          <span>Saídas: ${money.format(document.expenseTotal || 0)}</span>
-          <span>Data: ${formatDate(document.openedAt)}</span>
-        </div>
-        <div class="document-actions">
-          <select class="document-status-control" data-id="${document.id}">
-            ${Object.entries(statusLabels).map(([value, label]) => `
-              <option value="${value}" ${document.status === value ? "selected" : ""}>${label}</option>
-            `).join("")}
-          </select>
-        </div>
-        ${document.notes ? `<p class="document-notes">${escapeHtml(document.notes)}</p>` : ""}
-      </article>
-    `)
-    .join("");
-
-  els.documentsList.querySelectorAll(".document-status-control").forEach((select) => {
-    select.addEventListener("change", () => updateDocumentStatus(select.dataset.id, select.value));
-  });
 }
 
 function drawCharts() {
@@ -978,10 +812,6 @@ function findAccount(id) {
 
 function findCategory(id) {
   return state.categories.find((category) => category.id === id);
-}
-
-function findDocument(id) {
-  return state.documents.find((document) => document.id === id);
 }
 
 function getSelectedKind() {
